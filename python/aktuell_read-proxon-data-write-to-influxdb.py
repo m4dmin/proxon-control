@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+
+import time
+import datetime
+import configparser
+import logging
+from logging.handlers import RotatingFileHandler
+import minimalmodbus
+import serial
+#import requests
+#import sys
+import json
+from influxdb import InfluxDBClient
+
+
+############### init section ###############
+
+##### config section
+config = configparser.ConfigParser()
+config.read('../conf/proxon-control.conf')
+
+influxDB_ip = config['influxDB']['ipAdresse']
+influxDB_port = config['influxDB']['port']
+influxDB_user = config['influxDB']['user']
+influxDB_passwd = config['influxDB']['password']
+influxDB_db = config['influxDB']['db']
+influxDB_tag_instance = config['influxDB']['tag_instance']
+influxDB_tag_source = config['influxDB']['tag_source']
+
+serial_port = config['serial']['port']
+
+##### Array with JSON data for influxDB write
+points = []
+
+##### Proxon section
+
+
+
+############### logging section ###############
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# create a file handler
+handler = RotatingFileHandler('../log/smartmeter.log', maxBytes=10*1024*1024, backupCount=2)
+handler.setLevel(logging.INFO)
+
+# create a logging format
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+
+# add the handlers to the logger
+logger.addHandler(handler)
+
+# logging examples
+ logger.debug("Debug Log")
+# logger.info("Info Log")
+# logger.warning("Warning Log")
+# logger.error("Error Log")
+# logger.critical("Critical Log")
+
+
+############### Runtime section ##################
+
+#### SZ section
+ser = serial.Serial(serial_port, serial_baud, parity=serial.PARITY_ODD)
+ser.bytesize = serial.SEVENBITS             # number of bits per bytes
+ser.parity = serial.PARITY_EVEN             # set parity check: no parity
+ser.stopbits = serial.STOPBITS_ONE          # number of stop bits
+#ser.timeout = None                         # block read
+#ser.timeout = 0                            # non-block read
+ser.timeout = 5                             # timeout block read
+ser.xonxoff = False                         # disable software flow control
+ser.rtscts = False                          # disable hardware (RTS/CTS) flow control
+ser.dsrdtr = False                          # disable hardware (DSR/DTR) flow control
+ser.writeTimeout = 0                        # timeout for write
+
+
+try:
+    instr = minimalmodbus.Instrument("/dev/ttyUSB0", 41)
+    instr.serial.baudrate = 19200 
+    instr.serial.bytesize = 8
+    instr.serial.parity   = minimalmodbus.serial.PARITY_EVEN
+    instr.serial.stopbits = 1
+    instr.serial.timeout  = 0.05
+except Exception as e:
+    logger.debug(e)
+
+try:
+    logger.debug("Sende Initiaslisierungssequenz")
+    ser.write(b'\x2F\x3F\x21\x0D\x0A')
+    time.sleep(0.5)
+    responseByte = ser.readline()
+    logger.debug(responseByte)
+    logger.debug("Sende Acksequenz")
+    ser.write(b'\x06\x30\x30\x30\x0D\x0A')
+
+    numberOfLine = 0
+    while True:
+        numberOfLine = numberOfLine + 1
+        logger.debug("Zeile "+str(numberOfLine)+" einlesen")
+        sz_responseByte = ser.readline()
+        logger.debug(sz_responseByte)
+        sz_responseString = sz_responseByte.decode("utf-8").rstrip('\r\n')
+
+        # sz_leistung_aktuell
+        if sz_responseString[0:len(sz_leistung_aktuell)] == sz_leistung_aktuell:
+            sz_responseStripped = sz_responseString.replace(sz_leistung_aktuell,"")
+            sz_responseStripped = sz_responseStripped.replace("(","")
+            sz_responseStripped = sz_responseStripped.replace("*kW)","")
+            sz_responseStrippedW = float(sz_responseStripped)*1000
+            sz_actW = sz_responseStrippedW
+            logger.info("SZ Leistung aktuell: "+str(sz_actW))
+            point = {
+                "measurement": 'sz_leistung_aktuell',
+                "tags": {
+                    "instance": influxDB_tag_instance,
+                    "source": influxDB_tag_source
+                },
+                #   "time": timestamp,   # Wenn nicht genutzt, wird der aktuelle Timestamp aus influxDB genutzt
+                "fields": {
+                    "W": sz_responseStrippedW
+                    }
+                }
+            points.append(point)
+
+        if (numberOfLine >= 24):
+            break
+except Exception as e:
+    logger.error(e)
+    ser.close()
+    sys.exit(1)
+
+try:
+    ser.close()
+except Exception as e:
+    logger.error(e)
+    sys.exit(1)
+
+#### PV section
+
+# JSON params for PV API request
+params = (
+    ('dxsEntries', [piko_id_NetzAusgangLeistung]),
+    ('sessionId', '3378188426'),
+)
+
+# get data from PV API
+try:
+    logger.debug('http://'+piko_ipAdresse+'/api/dxs.json')
+    pv_responseRequest = requests.get('http://'+piko_ipAdresse+'/api/dxs.json', params=params)
+except requests.exceptions.RequestException as e:
+    logger.error(e)
+    sys.exit(1)
+logger.debug(pv_responseRequest.content)
+
+pv_responseByte = pv_responseRequest.content
+pv_responseString = pv_responseByte.decode("utf-8")
+pv_responseJson = json.loads(pv_responseString)
+logger.debug(pv_responseJson)
+
+# exploit data values from PV API response
+for dxsId in pv_responseJson["dxsEntries"]:
+    logger.debug(dxsId)
+    pv_actW = float(dxsId["value"])
+
+    if dxsId["dxsId"] == piko_id_NetzAusgangLeistung:
+        logger.info("PV Leistung aktuell: "+str(dxsId["value"]))
+        point = {
+            "measurement": 'pv_leistung_aktuell',
+            "tags": {
+                "instance": influxDB_tag_instance,
+                "source": influxDB_tag_source
+            },
+            #   "time": timestamp,   # Wenn nicht genutzt, wird der aktuelle Timestamp aus influxDB genutzt
+            "fields": {
+                "W": dxsId["value"]
+                }
+            }
+        points.append(point)
+
+# Aktuellen Verbrauch berechnen
+strom_actW = sz_actW + pv_actW
+logger.info("Strom Verbrauch aktuell: "+str(strom_actW))
+point = {
+    "measurement": 'verbrauch_aktuell',
+    "tags": {
+        "instance": influxDB_tag_instance,
+        "source": influxDB_tag_source
+    },
+    #   "time": timestamp,   # Wenn nicht genutzt, wird der aktuelle Timestamp aus influxDB genutzt
+    "fields": {
+        "W": strom_actW
+        }
+    }
+points.append(point)
+
+##### influxDB section
+try:
+    clientInfluxDB = InfluxDBClient(influxDB_ip, influxDB_port, influxDB_user, influxDB_passwd, influxDB_db)
+    clientInfluxDB.write_points(points)
+except Exception as e:
+    logger.error(e)
+    sys.exit(1)

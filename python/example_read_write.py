@@ -10,11 +10,11 @@ instr.serial.stopbits = 1
 instr.serial.timeout  = 0.05
 
 #Read Holding Register # FC4 = 3
-print(instr.read_register(62,0,3,True))
+print(instr.read_register(62,0,3,True))  # < bevorzugt
 print(instr.read_registers(62,1,3)) 
 
 #Read Input Register   # FC3 = 4
-print(instr.read_register(23,0,4,True))
+print(instr.read_register(23,0,4,True))  # < bevorzugt
 print(instr.read_registers(23,1,4)) 
 
 #Write Holding Register
