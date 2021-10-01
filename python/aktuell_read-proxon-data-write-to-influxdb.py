@@ -29,20 +29,52 @@ influxDB_tag_source = config['influxDB']['tag_source']
 
 serial_port = config['serial']['port']
 
+##### Proxon section
+try:
+    instr = minimalmodbus.Instrument("/dev/ttyUSB0", 41)
+    instr.serial.baudrate = 19200 
+    instr.serial.bytesize = 8
+    instr.serial.parity   = minimalmodbus.serial.PARITY_EVEN
+    instr.serial.stopbits = 1
+    instr.serial.timeout  = 0.05
+except Exception as e:
+    logger.debug(e)
+
 ##### Array with JSON data for influxDB write
 points = []
 
-##### Proxon section
-
+##### Array with Modbus registers
+        #Read Holding Register # FC4 = 3
+reg =  [[  16, 0, 3, 'wp_modus_betriebsart' ,'Betriebsart'],
+        [  62, 0, 3, 'wp_on-off_kuehlung' ,'Kühlung an/aus'],
+        [  70, 2, 3, 'wp_soll-temp_zone1' ,'Wohnen  (Zone1) Soll-Temperatur'],
+        [  75, 2, 3, 'wp_soll-temp_zone2' ,'Büro KG (Zone2) Soll-Temperatur'],
+        [ 133, 0, 3, 'wp_restzeit_intensivlueftung' ,'Intensivlüftung Restzeit'],
+        [2001, 0, 3, 't300_on-off_heizstab' ,'Heizstab an/aus'],
+        [2000, 1, 3, 't300_soll-temp_wasser' ,'Wasser Soll-Temperatur'],
+        [2003, 1, 3, 't300_schwelle-temp_wasser' ,'Wasser Temperatur-Schwelle Heizstab'],
+        #Read Input Register   # FC3 = 4
+        [ 814, 1, 4, 't300_temp_wasser' ,'Wasser Temperatur'],
+        [  41, 2, 4, 'wp_temp_zone1' ,'Wohnen  (Zone1) Temperatur'],
+        [  40, 2, 4, 'wp_temp_zone2' ,'Büro KG (Zone2) Temperatur'],
+        [ 593, 1, 4, 'wp_temp_kochen' ,'Kochen Temperatur'],
+        [ 596, 1, 4, 'wp_temp_diele' ,'Diele Temperatur'],
+        [ 599, 1, 4, 'wp_temp_buero-eg' ,'Büro EG Temperatur'],
+        [ 602, 1, 4, 'wp_temp_schalfen' ,'Schlafen Temperatur'],
+        [ 605, 1, 4, 'wp_temp_martha' ,'Martha Temperatur'],
+        [ 608, 1, 4, 'wp_temp_marlene' ,'Marlene Temperatur'],
+        [ 614, 1, 4, 'wp_temp_keller2' ,'Keller 2 Temperatur'],
+        [ 617, 1, 4, 'wp_temp_keller3' ,'Keller 3 Temperatur'],
+        [ 154, 0, 4, 'wp_stufe_ventilator-zuluft' ,'Ventilator Zuluft Lüftungsstufe']]    
 
 
 ############### logging section ###############
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # create a file handler
-handler = RotatingFileHandler('../log/smartmeter.log', maxBytes=10*1024*1024, backupCount=2)
-handler.setLevel(logging.INFO)
+handler = RotatingFileHandler('../log/aktuell_read-proxon-data-write-to-influxdb.log', maxBytes=10*1024*1024, backupCount=2)
+handler.setLevel(logging.DEBUG)
 
 # create a logging format
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -61,43 +93,15 @@ logger.addHandler(handler)
 
 ############### Runtime section ##################
 
-#### SZ section
-ser = serial.Serial(serial_port, serial_baud, parity=serial.PARITY_ODD)
-ser.bytesize = serial.SEVENBITS             # number of bits per bytes
-ser.parity = serial.PARITY_EVEN             # set parity check: no parity
-ser.stopbits = serial.STOPBITS_ONE          # number of stop bits
-#ser.timeout = None                         # block read
-#ser.timeout = 0                            # non-block read
-ser.timeout = 5                             # timeout block read
-ser.xonxoff = False                         # disable software flow control
-ser.rtscts = False                          # disable hardware (RTS/CTS) flow control
-ser.dsrdtr = False                          # disable hardware (DSR/DTR) flow control
-ser.writeTimeout = 0                        # timeout for write
-
-
+##### Proxon section
 try:
-    instr = minimalmodbus.Instrument("/dev/ttyUSB0", 41)
-    instr.serial.baudrate = 19200 
-    instr.serial.bytesize = 8
-    instr.serial.parity   = minimalmodbus.serial.PARITY_EVEN
-    instr.serial.stopbits = 1
-    instr.serial.timeout  = 0.05
-except Exception as e:
-    logger.debug(e)
+    logger.debug("0000 - Starte Lesevorgang")
 
-try:
-    logger.debug("Sende Initiaslisierungssequenz")
-    ser.write(b'\x2F\x3F\x21\x0D\x0A')
-    time.sleep(0.5)
-    responseByte = ser.readline()
-    logger.debug(responseByte)
-    logger.debug("Sende Acksequenz")
-    ser.write(b'\x06\x30\x30\x30\x0D\x0A')
+    for i in range(len(reg)):
 
-    numberOfLine = 0
-    while True:
-        numberOfLine = numberOfLine + 1
-        logger.debug("Zeile "+str(numberOfLine)+" einlesen")
+
+
+        logger.debug("Register "+str(i)+" einlesen")
         sz_responseByte = ser.readline()
         logger.debug(sz_responseByte)
         sz_responseString = sz_responseByte.decode("utf-8").rstrip('\r\n')
@@ -123,76 +127,13 @@ try:
                 }
             points.append(point)
 
-        if (numberOfLine >= 24):
-            break
-except Exception as e:
-    logger.error(e)
-    ser.close()
-    sys.exit(1)
 
-try:
-    ser.close()
+
+
 except Exception as e:
     logger.error(e)
     sys.exit(1)
 
-#### PV section
-
-# JSON params for PV API request
-params = (
-    ('dxsEntries', [piko_id_NetzAusgangLeistung]),
-    ('sessionId', '3378188426'),
-)
-
-# get data from PV API
-try:
-    logger.debug('http://'+piko_ipAdresse+'/api/dxs.json')
-    pv_responseRequest = requests.get('http://'+piko_ipAdresse+'/api/dxs.json', params=params)
-except requests.exceptions.RequestException as e:
-    logger.error(e)
-    sys.exit(1)
-logger.debug(pv_responseRequest.content)
-
-pv_responseByte = pv_responseRequest.content
-pv_responseString = pv_responseByte.decode("utf-8")
-pv_responseJson = json.loads(pv_responseString)
-logger.debug(pv_responseJson)
-
-# exploit data values from PV API response
-for dxsId in pv_responseJson["dxsEntries"]:
-    logger.debug(dxsId)
-    pv_actW = float(dxsId["value"])
-
-    if dxsId["dxsId"] == piko_id_NetzAusgangLeistung:
-        logger.info("PV Leistung aktuell: "+str(dxsId["value"]))
-        point = {
-            "measurement": 'pv_leistung_aktuell',
-            "tags": {
-                "instance": influxDB_tag_instance,
-                "source": influxDB_tag_source
-            },
-            #   "time": timestamp,   # Wenn nicht genutzt, wird der aktuelle Timestamp aus influxDB genutzt
-            "fields": {
-                "W": dxsId["value"]
-                }
-            }
-        points.append(point)
-
-# Aktuellen Verbrauch berechnen
-strom_actW = sz_actW + pv_actW
-logger.info("Strom Verbrauch aktuell: "+str(strom_actW))
-point = {
-    "measurement": 'verbrauch_aktuell',
-    "tags": {
-        "instance": influxDB_tag_instance,
-        "source": influxDB_tag_source
-    },
-    #   "time": timestamp,   # Wenn nicht genutzt, wird der aktuelle Timestamp aus influxDB genutzt
-    "fields": {
-        "W": strom_actW
-        }
-    }
-points.append(point)
 
 ##### influxDB section
 try:
