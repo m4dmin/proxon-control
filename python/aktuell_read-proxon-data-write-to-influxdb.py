@@ -60,12 +60,12 @@ reg =  [[  16, 0, 3, 'wp_modus_betriebsart', 'mode', 'Betriebsart'], # 0=Aus, 1=
         [ 593, 1, 4, 'wp_temp_kochen', 'C', 'Kochen Temperatur'],
         [ 596, 1, 4, 'wp_temp_diele', 'C', 'Diele Temperatur'],
         [ 599, 1, 4, 'wp_temp_buero-eg', 'C', 'Büro EG Temperatur'],
-        [ 602, 1, 4, 'wp_temp_schalfen', 'C', 'Schlafen Temperatur'],
+        [ 602, 1, 4, 'wp_temp_schlafen', 'C', 'Schlafen Temperatur'],
         [ 605, 1, 4, 'wp_temp_martha', 'C', 'Martha Temperatur'],
         [ 608, 1, 4, 'wp_temp_marlene', 'C', 'Marlene Temperatur'],
         [ 614, 1, 4, 'wp_temp_keller2', 'C', 'Keller 2 Temperatur'],
         [ 617, 1, 4, 'wp_temp_keller3', 'C', 'Keller 3 Temperatur'],
-        [ 154, 0, 4, 'wp_stufe_ventilator-zuluft', 'level', 'Ventilator Zuluft Lüftungsstufe']]    
+        [ 154, 0, 4, 'wp_stufe_ventilator-zuluft', 'level', 'Ventilator Zuluft Lüftungsstufe']] # Stufen 1 bis 4
 
 
 ############### logging section ###############
