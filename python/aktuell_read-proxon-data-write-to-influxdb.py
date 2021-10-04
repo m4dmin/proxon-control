@@ -7,8 +7,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import minimalmodbus
 import serial
-#import requests
-#import sys
+import sys
 import json
 from influxdb import InfluxDBClient
 
@@ -28,10 +27,11 @@ influxDB_tag_instance = config['influxDB']['tag_instance']
 influxDB_tag_source = config['influxDB']['tag_source']
 
 serial_port = config['modbus']['port']
+slave_address = config['modbus']['port']
 
 ##### Proxon section
 try:
-    instr = minimalmodbus.Instrument(serial_port, 41)
+    instr = minimalmodbus.Instrument(serial_port, slave_address)
     instr.serial.baudrate = 19200 
     instr.serial.bytesize = 8
     instr.serial.parity   = minimalmodbus.serial.PARITY_EVEN
@@ -39,6 +39,7 @@ try:
     instr.serial.timeout  = 0.05
 except Exception as e:
     logger.debug(e)
+    sys.exit(1)
 
 ##### Array with JSON data for influxDB write
 points = []
