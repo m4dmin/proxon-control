@@ -122,7 +122,7 @@ def on_message(client, userdata, message):
         logger.info("Message qos="+str(message.qos))
         logger.info("Message retain flag="+str(message.retain))
     
-        a,device_category,device,sub_topic = str(message.topic).split("/")
+        a,b,device,sub_topic = str(message.topic).split("/")
         value  = int(message.payload.decode("utf-8"))
         points = []
 
@@ -172,16 +172,17 @@ def on_message(client, userdata, message):
 ##### Runtime section ------------------------------------------------------------------------------------------------------------------------------------------
 try:
     ##### influxDB section
+    logger.info("Creating new influxDB client")
     clientInfluxDB = InfluxDBClient(influxDB_ip, influxDB_port, influxDB_user, influxDB_passwd, influxDB_db)
 
     ##### MQTT section
-    logger.info("Creating new instance")
-    client = mqtt.Client(client_name)
+    logger.info("Creating new MQTT instance")
+    client = mqtt.Client(mqtt_client_name)
     client.on_connect = on_connect
     client.on_message = on_message
-    logger.info("Connection to broker")
-    client.connect(broker_address)
-    logger.info("Starting loop forever")
+    logger.info("Connection to MQTT broker")
+    client.connect(mqtt_broker_address)
+    logger.info("Starting loop MQTT forever")
     client.loop_forever()
 
 except Exception as e:

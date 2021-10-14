@@ -10,6 +10,8 @@ import serial
 import sys
 import json
 from influxdb import InfluxDBClient
+import paho.mqtt.client as mqtt
+import socket
 
 
 ##### init section ------------------------------------------------------------------------------------------------------------------------------------------
@@ -55,6 +57,11 @@ try:
 
     serial_port = config['modbus']['port']
     slave_address = config['modbus']['port']
+
+    mqtt_broker_address = config['mqtt']['broker_address']
+    mqtt_client_name = str(socket.gethostname()+"."str(sys.argv[0]))
+    mqtt_topic_prefix = "/proxon
+    mqtt_topic_debug = mqtt_topic_prefix+"/debug"
 
 except Exception as e:
     logger.debug(e)
@@ -107,12 +114,34 @@ except Exception as e:
     sys.exit(2)
 
 
+##### MQTT section ------------------------------------------------------------------------------------------------------------------------------------------
+
+# when connecting to mqtt do this;
+def on_connect(client, userdata, flags, rc):
+    try:
+        logger.info("Connected with result code "+str(rc))
+        client.publish(mqtt_topic_debug,"Devive "+str(client_name)+" connected with result code "+str(rc))
+    except Exception as e:
+        logger.debug(e)
+        sys.exit(2)
+
+
 ##### Runtime section ------------------------------------------------------------------------------------------------------------------------------------------
 try:
+    ##### MQTT section
+    logger.info("Creating new MQTT instance")
+    client = mqtt.Client(mqtt_client_name)
+    client.on_connect = on_connect
+    logger.info("Connection to MQTT broker")
+    client.connect(mqtt_broker_address)
+    
     ##### Proxon section
     logger.debug("0000 - Starte Lesevorgang")
 
     for i in range(len(reg)):
+        mqtt_state_topic = mqtt_topic_prefix+"/"+str(reg[i][4])+"/"+str(reg[i][3])+"/state_topic"
+        logger.debug("state_topic - "+mqtt_state_topic)
+
         logger.debug("Register Array - "+str(reg[i]))
 
         value = instr.read_register(reg[i][0],reg[i][1],reg[i][2],True)
@@ -125,6 +154,8 @@ try:
         if reg[i][3] == 't300_temp_wasser':
             value = value - 100
             logger.debug("Value: "+str(value))
+
+        client.publish(mqtt_state_topic,str(value))
 
         logger.info(str(reg[i][5]).ljust(35)+": "+str(value)+" "+str(reg[i][4]))
         point = {
