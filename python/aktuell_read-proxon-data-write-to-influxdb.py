@@ -12,6 +12,8 @@ import json
 from influxdb import InfluxDBClient
 import paho.mqtt.client as mqtt
 import socket
+import random
+import time
 
 
 ##### init section ------------------------------------------------------------------------------------------------------------------------------------------
@@ -41,6 +43,25 @@ try:
 
 except Exception as e:
     sys.exit(1)
+
+##### Process Lock section
+unlocked = False
+while unlocked == False
+    try:
+        logger.debug("Lock schleife start")
+        lock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        logger.debug("Lock schleife bind")
+        lock.bind( '\0postconnect_gateway_notify_lock') 
+        unlocked = True
+
+    except socket.error as e:
+        logger.debug(e)
+        delay = random.randint(5, 15)
+        logger.info("Process is already running. Waiting "+str(delay)+" seconds")
+        time.sleep(delay)
+
+else:
+    logger.info("No other processes running. Going forward")
 
 ##### config section
 try:
