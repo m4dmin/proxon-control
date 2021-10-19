@@ -46,7 +46,7 @@ except Exception as e:
 
 ##### Process Lock section
 unlocked = False
-while unlocked == False
+while unlocked == False:
     try:
         logger.debug("Lock schleife start")
         lock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -80,8 +80,8 @@ try:
     slave_address = config['modbus']['port']
 
     mqtt_broker_address = config['mqtt']['broker_address']
-    mqtt_client_name = str(socket.gethostname()+"."str(sys.argv[0]))
-    mqtt_topic_prefix = "/proxon
+    mqtt_client_name = str(socket.gethostname()+"."+sys.argv[0])
+    mqtt_topic_prefix = "/proxon"
     mqtt_topic_debug = mqtt_topic_prefix+"/debug"
 
 except Exception as e:

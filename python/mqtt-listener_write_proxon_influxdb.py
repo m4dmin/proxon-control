@@ -59,8 +59,8 @@ try:
     slave_address = config['modbus']['port']
 
     mqtt_broker_address = config['mqtt']['broker_address']
-    mqtt_client_name = str(socket.gethostname()+"."str(sys.argv[0]))
-    mqtt_topic_prefix = "/proxon
+    mqtt_client_name = str(socket.gethostname()+"."+sys.argv[0])
+    mqtt_topic_prefix = "/proxon"
     mqtt_topic_debug = mqtt_topic_prefix+"/debug"
 
 except Exception as e:
@@ -132,10 +132,10 @@ def on_message(client, userdata, message):
         # MQTT Number     -> temp, time
 
         for i in range(len(reg)):
-            if device == reg[i][3]
-                if reg[i][0] == 62
+            if device == reg[i][3]:
+                if reg[i][0] == 62:
                     if value == 1:
-                        logger.info("Write register="+str(reg[i]0])+" Value="+str(value))
+                        logger.info("Write register="+str(reg[i][0])+" Value="+str(value))
                         instr.write_register(reg[i][0], 1, reg[i][1], 6, True)
                         
                     if value == 0:
