@@ -46,7 +46,7 @@ except Exception as e:
 
 ##### Process Lock section
 locked = True
-while unlocked == True:
+while locked == True:
     try:
         logger.debug("Lock schleife start")
         lock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -98,7 +98,7 @@ try:
 
 except Exception as e:
     logger.debug(e)
-    sys.exit(2)
+    sys.exit(3)
 
 ##### Array section
 try:
@@ -117,33 +117,34 @@ try:
             [    75,                2,                 1,            3,   True,           'wp_soll-temp_zone2',    'temp', 'Büro KG (Zone2) Soll-Temperatur'],     # 100 - 295
             [  2000,                1,                 1,            3,   True,        't300_soll-temp_wasser',    'temp', 'Wasser Soll-Temperatur'],              # 450 - 600
             [  2003,                1,                 1,            3,   True,    't300_schwelle-temp_wasser',    'temp', 'Wasser Temperatur-Schwelle Heizstab'], # 400 - 500
-            [   133,                0,                 0,            3,   True, 'wp_restzeit_intensivlueftung',    'time', 'Intensivlüftung Restzeit'],            # 0 - 1440
+            [   133,                0,                 0,            3,   True, 'wp_restzeit_intensivlueftung',     'min', 'Intensivlüftung Restzeit'],            # 0 - 1440
             #Read Input Register   # FC3 = 4
-            [   814,                1,                '',            4, 'none',             't300_temp_wasser',     'temp', 'Wasser Temperatur'],                  # +100 Abweichung zur tatsächlichen Temperatur
-            [    41,                2,                '',            4, 'none',                'wp_temp_zone1',     'temp', 'Wohnen  (Zone1) Temperatur'],
-            [    40,                2,                '',            4, 'none',                'wp_temp_zone2',     'temp', 'Büro KG (Zone2) Temperatur'],
-            [   593,                1,                '',            4, 'none',               'wp_temp_kochen',     'temp', 'Kochen Temperatur'],
-            [   596,                1,                '',            4, 'none',                'wp_temp_diele',     'temp', 'Diele Temperatur'],
-            [   599,                1,                '',            4, 'none',             'wp_temp_buero-eg',     'temp', 'Büro EG Temperatur'],
-            [   602,                1,                '',            4, 'none',             'wp_temp_schlafen',     'temp', 'Schlafen Temperatur'],
-            [   605,                1,                '',            4, 'none',               'wp_temp_martha',     'temp', 'Martha Temperatur'],
-            [   608,                1,                '',            4, 'none',              'wp_temp_marlene',     'temp', 'Marlene Temperatur'],
-            [   614,                1,                '',            4, 'none',              'wp_temp_keller2',     'temp', 'Keller 2 Temperatur'],
-            [   617,                1,                '',            4, 'none',              'wp_temp_keller3',     'temp', 'Keller 3 Temperatur'],
-            [   154,                0,                '',            4, 'none',   'wp_stufe_ventilator-zuluft',    'level', 'Ventilator Zuluft Lüftungsstufe']]     # Stufen 1 bis 4
+            [   814,                1,                '',            4, 'none',             't300_temp_wasser',    'temp', 'Wasser Temperatur'],                  # +100 Abweichung zur tatsächlichen Temperatur
+            [    41,                2,                '',            4, 'none',                'wp_temp_zone1',    'temp', 'Wohnen  (Zone1) Temperatur'],
+            [    40,                2,                '',            4, 'none',                'wp_temp_zone2',    'temp', 'Büro KG (Zone2) Temperatur'],
+            [   593,                1,                '',            4, 'none',               'wp_temp_kochen',    'temp', 'Kochen Temperatur'],
+            [   596,                1,                '',            4, 'none',                'wp_temp_diele',    'temp', 'Diele Temperatur'],
+            [   599,                1,                '',            4, 'none',             'wp_temp_buero-eg',    'temp', 'Büro EG Temperatur'],
+            [   602,                1,                '',            4, 'none',             'wp_temp_schlafen',    'temp', 'Schlafen Temperatur'],
+            [   605,                1,                '',            4, 'none',               'wp_temp_martha',    'temp', 'Martha Temperatur'],
+            [   608,                1,                '',            4, 'none',              'wp_temp_marlene',    'temp', 'Marlene Temperatur'],
+            [   614,                1,                '',            4, 'none',              'wp_temp_keller2',    'temp', 'Keller 2 Temperatur'],
+            [   617,                1,                '',            4, 'none',              'wp_temp_keller3',    'temp', 'Keller 3 Temperatur'],
+            [   154,                0,                '',            4, 'none',   'wp_stufe_ventilator-zuluft',   'level', 'Ventilator Zuluft Lüftungsstufe']]     # Stufen 1 bis 4
 
 except Exception as e:
     logger.debug(e)
-    sys.exit(2)
+    sys.exit(4)
 
 
 ##### MQTT section ------------------------------------------------------------------------------------------------------------------------------------------
 
 # when connecting to mqtt do this;
 def on_connect(client, userdata, flags, rc):
+    logger.debug("TEST CONNECT")
     try:
         logger.info("Connected with result code "+str(rc))
-        client.publish(mqtt_topic_debug,"Devive "+str(client_name)+" connected with result code "+str(rc))
+        client.publish(mqtt_topic_debug,"Devive "+str(mqtt_client_name)+" connected with result code "+str(rc))
 
         ##### Proxon section
         logger.debug("Starte Lesevorgang")
@@ -185,9 +186,11 @@ def on_connect(client, userdata, flags, rc):
         lock.close()
         logger.info("Closed running processes")
 
+        loop.stop()
+
     except Exception as e:
         logger.debug(e)
-        sys.exit(2)
+        sys.exit(5)
 
 
 ##### Runtime section ------------------------------------------------------------------------------------------------------------------------------------------
@@ -201,8 +204,9 @@ try:
     client.on_connect = on_connect
     logger.info("Connection to MQTT broker")
     client.connect(mqtt_broker_address)
+    client.loop_forever()
     logger.info("Closed connection to MQTT broker")
 
 except Exception as e:
     logger.error(e)
-    sys.exit(2)
+    sys.exit(6)

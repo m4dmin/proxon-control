@@ -95,7 +95,7 @@ try:
             [    75,                2,                 1,            3,   True,           'wp_soll-temp_zone2',    'temp', 'Büro KG (Zone2) Soll-Temperatur'],     # 100 - 295
             [  2000,                1,                 1,            3,   True,        't300_soll-temp_wasser',    'temp', 'Wasser Soll-Temperatur'],              # 450 - 600
             [  2003,                1,                 1,            3,   True,    't300_schwelle-temp_wasser',    'temp', 'Wasser Temperatur-Schwelle Heizstab'], # 400 - 500
-            [   133,                0,                 0,            3,   True, 'wp_restzeit_intensivlueftung',    'time', 'Intensivlüftung Restzeit']]            # 0 - 1440
+            [   133,                0,                 0,            3,   True, 'wp_restzeit_intensivlueftung',     'min', 'Intensivlüftung Restzeit']]            # 0 - 1440
 
 except Exception as e:
     logger.debug(e)
@@ -106,8 +106,9 @@ except Exception as e:
 
 # when connecting to mqtt do this;
 def on_connect(client, userdata, flags, rc):
+    logger.debug("TEST CONNECT")
     locked = True
-    while unlocked == True:
+    while locked == True:
         try:
             logger.debug("Lock schleife start")
             lock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -136,7 +137,6 @@ def on_connect(client, userdata, flags, rc):
             client.subscribe(mqtt_command_topic)
 
             # update state topic
-            mqtt_state_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/state"
             mqtt_state_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/state"
             logger.debug("state_topic - "+mqtt_state_topic)
             logger.debug("Register Array - "+str(reg[i]))
@@ -182,8 +182,9 @@ def on_connect(client, userdata, flags, rc):
 
 # when receiving a mqtt message do this;
 def on_message(client, userdata, message):
+    logger.debug("TEST MESSAGE")
     locked = True
-    while unlocked == True:
+    while locked == True:
         try:
             logger.debug("Lock schleife start")
             lock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
