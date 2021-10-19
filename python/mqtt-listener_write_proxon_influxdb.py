@@ -59,7 +59,7 @@ try:
     slave_address = config['modbus']['port']
 
     mqtt_broker_address = config['mqtt']['broker_address']
-    mqtt_client_name = str(socket.gethostname()+"."+sys.argv[0])
+    mqtt_client_name = str(socket.gethostname()+sys.argv[0])
     mqtt_topic_prefix = "/proxon"
     mqtt_topic_debug = mqtt_topic_prefix+"/debug"
 
@@ -67,11 +67,9 @@ except Exception as e:
     logger.debug(e)
     sys.exit(2)
 
-print("mqtt_client_name: "+str(mqtt_client_name)) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! löschen
-
 ##### Proxon section
 try:
-    instr = minimalmodbus.Instrument(serial_port, slave_address)
+    instr = minimalmodbus.Instrument(serial_port, 41)
     instr.serial.baudrate = 19200 
     instr.serial.bytesize = 8
     instr.serial.parity   = minimalmodbus.serial.PARITY_EVEN
@@ -108,7 +106,7 @@ except Exception as e:
 def on_connect(client, userdata, flags, rc):
     try:
         logger.info("Connected with result code "+str(rc))
-        client.publish(mqtt_topic_debug,"Devive "+str(client_name)+" connected with result code "+str(rc))
+        client.publish(mqtt_topic_debug,"Devive "+str(mqtt_client_name)+" connected with result code "+str(rc))
     except Exception as e:
         logger.debug(e)
         sys.exit(2)

@@ -24,7 +24,7 @@ try:
     logger.setLevel(logging.DEBUG)
 
     # create a file handler
-    handler = RotatingFileHandler('../log/mqtt-listener_write_proxon_influxdb.log', maxBytes=10*1024*1024, backupCount=2)
+    handler = RotatingFileHandler('../log/aktuell_read-proxon-data-write-to-influxdb.log', maxBytes=10*1024*1024, backupCount=2)
     handler.setLevel(logging.DEBUG)
 
     # create a logging format
@@ -78,9 +78,9 @@ try:
 
     serial_port = config['modbus']['port']
     slave_address = config['modbus']['port']
-
+   
     mqtt_broker_address = config['mqtt']['broker_address']
-    mqtt_client_name = str(socket.gethostname()+"."+sys.argv[0])
+    mqtt_client_name = str(socket.gethostname()+sys.argv[0])
     mqtt_topic_prefix = "/proxon"
     mqtt_topic_debug = mqtt_topic_prefix+"/debug"
 
@@ -90,7 +90,7 @@ except Exception as e:
 
 ##### Proxon section
 try:
-    instr = minimalmodbus.Instrument(serial_port, slave_address)
+    instr = minimalmodbus.Instrument(serial_port, 41)
     instr.serial.baudrate = 19200 
     instr.serial.bytesize = 8
     instr.serial.parity   = minimalmodbus.serial.PARITY_EVEN
