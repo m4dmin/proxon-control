@@ -63,8 +63,6 @@ print("Offsettemp. NBP Marlene:       "+str(instr.read_register(219,0,3,True))) 
 print("Offsettemp. NBP Keller 2:      "+str(instr.read_register(221,0,3,True))) #ok
 print("Offsettemp. NBP Keller 3:      "+str(instr.read_register(222,0,3,True))) #ok
 
-print("105:      "+str(instr.read_register(105,0,3,True))) #? Luftfeuchte mal 2 ? 
-
 #Read Input Register   # FC3 = 4
 #print("-- Input Register")
 print("Power Total:                   "+str(instr.read_register(25,0,4,True))) #vllt. ok
@@ -82,3 +80,5 @@ print("Störung:                       "+str(instr.read_register(47,2,4,True))) 
 print("T300 Wasser Temperatur:        "+str(instr.read_register(814,1,4,True))) #ok, aber -100
 print("Akt.Ventilator Stufe Zuluft:   "+str(instr.read_register(154,0,4,True))) #ok
 print("SollZonenTemperatur2:          "+str(instr.read_register(251,2,4,True))) #ok
+print("CO2 Wert (ppm):                "+str(instr.read_register(21,0,4,True)))
+print("Relative Luftfeuchte (%):      "+str(instr.read_register(22,1,4,True)))
