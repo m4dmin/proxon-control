@@ -12,6 +12,7 @@ import json
 from influxdb import InfluxDBClient
 import paho.mqtt.client as mqtt
 import socket
+import ast
 
 
 ##### init section ------------------------------------------------------------------------------------------------------------------------------------------
@@ -56,11 +57,20 @@ try:
     influxDB_tag_source = config['influxDB']['tag_source']
 
     serial_port = config['modbus']['port']
+    # - write_register(registeraddress: int, value: Union[int, float], number_of_decimals: int = 0, functioncode: int = 16, signed: bool = False)
+    # - read_register(registeraddress: int, number_of_decimals: int = 0, functioncode: int = 3, signed: bool = False)
+    reg_list = ast.literal_eval(config.get('modbus', 'register'))
+    reg = []
+    for i in range(len(reg_list)):
+        if reg_list[i][3] == 3:
+            reg.append(reg_list[i])
 
     mqtt_broker_address = config['mqtt']['broker_address']
     mqtt_client_name = str(socket.gethostname()+sys.argv[0])
     mqtt_topic_prefix = "/proxon"
     mqtt_topic_debug = mqtt_topic_prefix+"/debug"
+
+    points = []
 
 except Exception as e:
     logger.debug(e)
@@ -74,28 +84,6 @@ try:
     instr.serial.parity   = minimalmodbus.serial.PARITY_EVEN
     instr.serial.stopbits = 1
     instr.serial.timeout  = 0.05
-
-except Exception as e:
-    logger.debug(e)
-    sys.exit(2)
-
-##### Array section
-try:
-    # JSON data for influxDB write
-    points = []
-
-    # Modbus registers
-    # - write_register(registeraddress: int, value: Union[int, float], number_of_decimals: int = 0, functioncode: int = 16, signed: bool = False)
-    # - read_register(registeraddress: int, number_of_decimals: int = 0, functioncode: int = 3, signed: bool = False)
-    #        reg-nr, nr-decimals-read, nr-decimals-write, functioncode, signed,             device/measurement, type (HA), comment
-    reg =  [[    16,                0,                 0,            3,   True,         'wp_modus_betriebsart',    'mode', 'Betriebsart'],                         # 0=Aus, 1=EcoSommer, 2=EcoWinter, 3=Komfort
-            [    62,                0,                 0,            3,     '',           'wp_on-off_kuehlung',  'switch', 'Kühlung an/aus'],                      # 0=Aus, 1=An
-            [  2001,                0,                 0,            3,   True,         't300_on-off_heizstab',  'switch', 'Heizstab an/aus'],                     # 0=Aus, 1=An
-            [    70,                2,                 1,            3,   True,           'wp_soll-temp_zone1',    'temp', 'Wohnen  (Zone1) Soll-Temperatur'],     # 100 - 295  ##-0,5 Abweichung zur Anzeige in der Anlage
-            [    75,                2,                 1,            3,   True,           'wp_soll-temp_zone2',    'temp', 'Büro KG (Zone2) Soll-Temperatur'],     # 100 - 295
-            [  2000,                1,                 1,            3,   True,        't300_soll-temp_wasser',    'temp', 'Wasser Soll-Temperatur'],              # 450 - 600
-            [  2003,                1,                 1,            3,   True,    't300_schwelle-temp_wasser',    'temp', 'Wasser Temperatur-Schwelle Heizstab'], # 400 - 500
-            [   133,                0,                 0,            3,   True, 'wp_restzeit_intensivlueftung',     'min', 'Intensivlüftung Restzeit']]            # 0 - 1440
 
 except Exception as e:
     logger.debug(e)
