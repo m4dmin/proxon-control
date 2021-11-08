@@ -22,7 +22,7 @@ try:
     logger.setLevel(logging.DEBUG)
 
     # create a file handler
-    handler = RotatingFileHandler('../log/mqtt-listener_write_proxon_influxdb.log', maxBytes=10*1024*1024, backupCount=2)
+    handler = RotatingFileHandler('../log/mqtt_write_to_proxon_and_db.log', maxBytes=10*1024*1024, backupCount=2)
     handler.setLevel(logging.DEBUG)
 
     # create a logging format
@@ -103,6 +103,16 @@ except Exception as e:
 
 
 ##### MQTT section ------------------------------------------------------------------------------------------------------------------------------------------
+
+# logging MQTT
+def on_log(client, userdata, level, buf):
+    logger.debug("MQTT-Log: ",buf)
+
+# handling disconnects
+def on_disconnect(client, userdata, rc):
+    logging.info("DISCONNECT REASON "  +str(rc))
+    client.connected_flag=False
+    client.disconnect_flag=True
 
 # when connecting to mqtt do this;
 def on_connect(client, userdata, flags, rc):
@@ -266,7 +276,9 @@ try:
     ##### MQTT section
     logger.info("Creating new MQTT instance")
     client = mqtt.Client(mqtt_client_name)
+    client.on_log=on_log
     client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
     client.on_message = on_message
     logger.info("Connection to MQTT broker")
     client.connect(mqtt_broker_address)
