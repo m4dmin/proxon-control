@@ -139,6 +139,16 @@ except Exception as e:
 
 ##### MQTT section ------------------------------------------------------------------------------------------------------------------------------------------
 
+# logging MQTT
+def on_log(client, userdata, level, buf):
+    logger.debug("MQTT-Log: ",buf)
+
+# handling disconnects
+def on_disconnect(client, userdata, rc):
+    logging.info("DISCONNECT REASON "  +str(rc))
+    client.connected_flag=False
+    client.disconnect_flag=True
+
 # when connecting to mqtt do this;
 def on_connect(client, userdata, flags, rc):
     logger.debug("TEST CONNECT")
@@ -154,7 +164,6 @@ def on_connect(client, userdata, flags, rc):
             logger.debug("state_topic - "+mqtt_state_topic)
             logger.debug("Register Array - "+str(reg[i]))
             value = instr.read_register(reg[i][0],reg[i][1],reg[i][3],True)
-            logger.debug("Value: "+str(value))
 
             if reg[i][5] == 'wp_soll-temp_zone1':
                 value = value + 0.5
@@ -164,9 +173,17 @@ def on_connect(client, userdata, flags, rc):
                 value = value - 100
                 logger.debug("Value: "+str(value))
 
-            client.publish(mqtt_state_topic,str(value),qos=0,retain=True)
+            if reg[i][6] == 'mode' or reg[i][6] == 'switch' or reg[i][6] == 'level' or reg[i][6] == 'min':
+                value = int(value)
 
-            logger.info(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
+            if reg[i][6] == 'temp':
+                value = float(value)
+
+            logger.debug("Value: "+str(value))
+
+            client.publish(mqtt_state_topic,str(value),qos=2,retain=True)
+
+            logger.debug(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
             point = {
                 "measurement": str(reg[i][5]),
                 "tags": {
@@ -201,6 +218,7 @@ try:
     ##### MQTT section
     logger.info("Creating new MQTT instance")
     client = mqtt.Client(mqtt_client_name)
+    client.on_log=on_log
     client.on_connect = on_connect
     logger.info("Connection to MQTT broker")
     client.connect(mqtt_broker_address)

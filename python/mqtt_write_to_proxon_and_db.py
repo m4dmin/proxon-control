@@ -147,9 +147,9 @@ def on_connect(client, userdata, flags, rc):
                 value = value + 0.5
                 logger.debug("Value: "+str(value))
 
-            client.publish(mqtt_state_topic,str(value),qos=0,retain=True)
+            client.publish(mqtt_state_topic,str(value),qos=2,retain=True)
 
-            logger.info(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
+            logger.debug(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
             point = {
                 "measurement": str(reg[i][5]),
                 "tags": {
@@ -166,7 +166,7 @@ def on_connect(client, userdata, flags, rc):
 
             # update availability topic
             mqtt_availability_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/availability"
-            client.publish(mqtt_availability_topic,"online",qos=0,retain=True)
+            client.publish(mqtt_availability_topic,"online",qos=2,retain=True)
 
             client.publish(mqtt_topic_debug,"Subscribed to topic: "+str(mqtt_availability_topic))
 
@@ -202,10 +202,10 @@ def on_message(client, userdata, message):
         logger.info("No other processes running. Going forward")
 
     try:
-        logger.info("Message received="+str(message.payload.decode("utf-8")))
-        logger.info("Message topic="+str(message.topic))
-        logger.info("Message qos="+str(message.qos))
-        logger.info("Message retain flag="+str(message.retain))
+        logger.debug("Message received="+str(message.payload.decode("utf-8")))
+        logger.debug("Message topic="+str(message.topic))
+        logger.debug("Message qos="+str(message.qos))
+        logger.debug("Message retain flag="+str(message.retain))
     
         a,b,device,sub_topic = str(message.topic).split("/")
         value  = int(message.payload.decode("utf-8"))
@@ -231,7 +231,7 @@ def on_message(client, userdata, message):
                     logger.info("Write register="+str(reg[i][0])+" Value="+str(value))
                     instr.write_register(reg[i][0], value, reg[i][2], 6, reg[i][3])
 
-                client.publish(mqtt_topic_prefix+"/"+reg[i][6]+"/"+reg[i][5]+"/state",str(value),qos=0,retain=True)
+                client.publish(mqtt_topic_prefix+"/"+reg[i][6]+"/"+reg[i][5]+"/state",str(value),qos=2,retain=True)
             
                 point = {
                     "measurement": str(reg[i][5]),
