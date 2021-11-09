@@ -34,7 +34,7 @@ try:
     logger.addHandler(handler)
 
     # logging examples
-    logger.debug("Debug Log")
+    # logger.debug("Debug Log")
     # logger.info("Info Log")
     # logger.warning("Warning Log")
     # logger.error("Error Log")
@@ -94,17 +94,17 @@ except Exception as e:
 
 # logging MQTT
 def on_log(client, userdata, level, buf):
-    logger.debug("MQTT-Log: ",buf)
+    logger.debug("MQTT on_log: ",str(buf))
 
 # handling disconnects
 def on_disconnect(client, userdata, rc):
-    logging.info("DISCONNECT REASON "  +str(rc))
-    client.connected_flag=False
-    client.disconnect_flag=True
+    logging.debug("MQTT on_disconnect - DISCONNECT REASON: "+str(rc))
+    mqttc.connected_flag=False
+    mqttc.disconnect_flag=True
 
 # when connecting to mqtt do this;
 def on_connect(client, userdata, flags, rc):
-    logger.debug("TEST CONNECT")
+    logger.debug("MQTT on_connect - CONNECT")
     locked = True
     while locked == True:
         try:
@@ -125,14 +125,14 @@ def on_connect(client, userdata, flags, rc):
 
     try:
         logger.info("Connected with result code "+str(rc))
-        client.publish(mqtt_topic_debug,"Devive "+str(mqtt_client_name)+" connected with result code "+str(rc))
+        mqttc.publish(mqtt_topic_debug,"Devive "+str(mqtt_client_name)+" connected with result code "+str(rc))
 
         points = []
 
         for i in range(len(reg)):
             # subscribe to command topic
             mqtt_command_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/command"
-            client.subscribe(mqtt_command_topic)
+            mqttc.subscribe(mqtt_command_topic)
 
             # update state topic
             mqtt_state_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/state"
@@ -145,9 +145,9 @@ def on_connect(client, userdata, flags, rc):
                 value = value + 0.5
                 logger.debug("Value: "+str(value))
 
-            client.publish(mqtt_state_topic,str(value),qos=2,retain=True)
+            mqttc.publish(mqtt_state_topic,str(value),qos=2,retain=True)
 
-            logger.debug(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
+            logger.info(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
             point = {
                 "measurement": str(reg[i][5]),
                 "tags": {
@@ -164,9 +164,9 @@ def on_connect(client, userdata, flags, rc):
 
             # update availability topic
             mqtt_availability_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/availability"
-            client.publish(mqtt_availability_topic,"online",qos=2,retain=True)
+            mqttc.publish(mqtt_availability_topic,"online",qos=2,retain=True)
 
-            client.publish(mqtt_topic_debug,"Subscribed to topic: "+str(mqtt_availability_topic))
+            mqttc.publish(mqtt_topic_debug,"Subscribed to topic: "+str(mqtt_availability_topic))
 
         clientInfluxDB.write_points(points)
 
@@ -180,7 +180,7 @@ def on_connect(client, userdata, flags, rc):
 
 # when receiving a mqtt message do this;
 def on_message(client, userdata, message):
-    logger.debug("TEST MESSAGE")
+    logger.debug("MQTT on_message - MESSAGE")
     locked = True
     while locked == True:
         try:
@@ -206,7 +206,7 @@ def on_message(client, userdata, message):
         logger.debug("Message retain flag="+str(message.retain))
     
         a,b,device,sub_topic = str(message.topic).split("/")
-        value  = int(message.payload.decode("utf-8"))
+        value  = float(message.payload.decode("utf-8"))
         points = []
 
         # Home Assistant  -> MQTT-Topic
@@ -216,21 +216,29 @@ def on_message(client, userdata, message):
 
         for i in range(len(reg)):
             if device == reg[i][5]:
+                if reg[i][5] == 'wp_soll-temp_zone1':
+                    value = (value - 0.5)
+                
+                if reg[i][6] == 'temp':
+                    valueDB = float(value)
+                    value = value * 10
+
+                if reg[i][6] == 'mode' or reg[i][6] == 'switch' or reg[i][6] == 'level' or reg[i][6] == 'min':
+                    valueDB = int(value)
+                
                 if reg[i][0] == 62:
                     if value == 1:
-                        logger.info("Write register="+str(reg[i][0])+" Value="+str(value))
-                        instr.write_register(reg[i][0], 1, reg[i][2], 6, True)
-                        
+                        instr.write_register(reg[i][0], int(value), reg[i][2], 6, True)
                     if value == 0:
-                        logger.info("Write register="+str(reg[i][0])+" Value="+str(value))
-                        instr.write_register(reg[i][0], 0, reg[i][2], 6, False)
-                
+                        instr.write_register(reg[i][0], int(value), reg[i][2], 6, False)
                 else:
-                    logger.info("Write register="+str(reg[i][0])+" Value="+str(value))
-                    instr.write_register(reg[i][0], value, reg[i][2], 6, reg[i][3])
+                    instr.write_register(reg[i][0], int(value), reg[i][2], 6, reg[i][3])
 
-                client.publish(mqtt_topic_prefix+"/"+reg[i][6]+"/"+reg[i][5]+"/state",str(value),qos=2,retain=True)
+                logger.info("Write register="+str(reg[i][0])+" Value="+str(value))
+
+                mqttc.publish(mqtt_topic_prefix+"/"+reg[i][6]+"/"+reg[i][5]+"/state",str(valueDB),qos=2,retain=True)
             
+                logger.info(str(reg[i][7]).ljust(35)+": "+str(valueDB)+" "+str(reg[i][6]))
                 point = {
                     "measurement": str(reg[i][5]),
                     "tags": {
@@ -239,7 +247,7 @@ def on_message(client, userdata, message):
                     },
                     #   "time": timestamp,   # Wenn nicht genutzt, wird der aktuelle Timestamp aus influxDB genutzt
                     "fields": {
-                        str(reg[i][6]): value
+                        str(reg[i][6]): valueDB
                         }
                     }
                 logger.debug(str(point))
@@ -258,20 +266,22 @@ def on_message(client, userdata, message):
 ##### Runtime section ------------------------------------------------------------------------------------------------------------------------------------------
 try:
     ##### influxDB section
-    logger.info("Creating new influxDB client")
     clientInfluxDB = InfluxDBClient(influxDB_ip, influxDB_port, influxDB_user, influxDB_passwd, influxDB_db)
+    logger.info("Created new influxDB client")
 
     ##### MQTT section
-    logger.info("Creating new MQTT instance")
-    client = mqtt.Client(mqtt_client_name)
-    client.on_log=on_log
-    client.on_connect = on_connect
-    client.on_disconnect = on_disconnect
-    client.on_message = on_message
-    logger.info("Connection to MQTT broker")
-    client.connect(mqtt_broker_address)
-    logger.info("Starting loop MQTT forever")
-    client.loop_forever()
+    mqttc = mqtt.Client(mqtt_client_name, True, None, mqtt.MQTTv31)
+    mqttc.on_log=on_log
+    mqttc.on_connect = on_connect
+    mqttc.on_disconnect = on_disconnect
+    mqttc.on_message = on_message
+    logger.info("Created new MQTT client: "+mqtt_client_name)
+
+    mqttc.connect(mqtt_broker_address)
+    logger.info("Connected to MQTT broker: "+mqtt_broker_address)
+
+    logger.info("Starting MQTT loop forever")
+    mqttc.loop_forever()
 
 except Exception as e:
     logger.error(e)

@@ -36,7 +36,7 @@ try:
     logger.addHandler(handler)
 
     # logging examples
-    logger.debug("Debug Log")
+    # logger.debug("Debug Log")
     # logger.info("Info Log")
     # logger.warning("Warning Log")
     # logger.error("Error Log")
@@ -44,25 +44,6 @@ try:
 
 except Exception as e:
     sys.exit(1)
-
-##### Process Lock section
-locked = True
-while locked == True:
-    try:
-        logger.debug("Lock schleife start")
-        lock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        logger.debug("Lock schleife bind")
-        lock.bind( '\0postconnect_gateway_notify_lock') 
-        locked = False
-
-    except socket.error as e:
-        logger.debug(e)
-        delay = random.randint(5, 15)
-        logger.info("Process is already running. Waiting "+str(delay)+" seconds")
-        time.sleep(delay)
-
-else:
-    logger.info("No other processes running. Going forward")
 
 ##### config section
 try:
@@ -93,6 +74,25 @@ except Exception as e:
     logger.debug(e)
     sys.exit(2)
 
+##### Process Lock section
+locked = True
+while locked == True:
+    try:
+        logger.debug("Lock schleife start")
+        lock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        logger.debug("Lock schleife bind")
+        lock.bind( '\0postconnect_gateway_notify_lock') 
+        locked = False
+
+    except socket.error as e:
+        logger.debug(e)
+        delay = random.randint(5, 15)
+        logger.info("Process is already running. Waiting "+str(delay)+" seconds")
+        time.sleep(delay)
+
+else:
+    logger.info("No other processes running. Going forward")
+
 ##### Proxon section
 try:
     instr = minimalmodbus.Instrument(serial_port, 41)
@@ -106,28 +106,27 @@ except Exception as e:
     logger.debug(e)
     sys.exit(3)
 
-
 ##### MQTT section ------------------------------------------------------------------------------------------------------------------------------------------
 
 # logging MQTT
 def on_log(client, userdata, level, buf):
-    logger.debug("MQTT-Log: ",buf)
+    logger.debug("MQTT on_log: ",str(buf))
 
 # handling disconnects
 def on_disconnect(client, userdata, rc):
-    logging.info("DISCONNECT REASON "  +str(rc))
-    client.connected_flag=False
-    client.disconnect_flag=True
+    logging.debug("MQTT on_disconnect - DISCONNECT REASON: "+str(rc))
+    mqttc.connected_flag=False
+    mqttc.disconnect_flag=True
 
 # when connecting to mqtt do this;
 def on_connect(client, userdata, flags, rc):
-    logger.debug("TEST CONNECT")
+    logger.debug("MQTT on_connect - CONNECT")
     try:
         logger.info("Connected with result code "+str(rc))
-        client.publish(mqtt_topic_debug,"Devive "+str(mqtt_client_name)+" connected with result code "+str(rc))
+        mqttc.publish(mqtt_topic_debug,"Devive "+str(mqtt_client_name)+" connected with result code "+str(rc))
 
         ##### Proxon section
-        logger.debug("Starte Lesevorgang")
+        logger.debug("Starte Proxon Lesevorgang")
 
         for i in range(len(reg)):
             mqtt_state_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/state"
@@ -137,11 +136,9 @@ def on_connect(client, userdata, flags, rc):
 
             if reg[i][5] == 'wp_soll-temp_zone1':
                 value = value + 0.5
-                logger.debug("Value: "+str(value))
 
             if reg[i][5] == 't300_temp_wasser':
                 value = value - 100
-                logger.debug("Value: "+str(value))
 
             if reg[i][6] == 'mode' or reg[i][6] == 'switch' or reg[i][6] == 'level' or reg[i][6] == 'min':
                 value = int(value)
@@ -151,9 +148,9 @@ def on_connect(client, userdata, flags, rc):
 
             logger.debug("Value: "+str(value))
 
-            client.publish(mqtt_state_topic,str(value),qos=2,retain=True)
+            mqttc.publish(mqtt_state_topic,str(value),qos=2,retain=True)
 
-            logger.debug(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
+            logger.info(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
             point = {
                 "measurement": str(reg[i][5]),
                 "tags": {
@@ -173,7 +170,7 @@ def on_connect(client, userdata, flags, rc):
         lock.close()
         logger.info("Closed running processes")
 
-        loop.stop()
+        #loop.stop()
 
     except Exception as e:
         logger.debug(e)
@@ -184,16 +181,29 @@ def on_connect(client, userdata, flags, rc):
 try:
     ##### influxDB section
     clientInfluxDB = InfluxDBClient(influxDB_ip, influxDB_port, influxDB_user, influxDB_passwd, influxDB_db)
+    logger.info("Created new influxDB client")
     
     ##### MQTT section
-    logger.info("Creating new MQTT instance")
-    client = mqtt.Client(mqtt_client_name)
-    client.on_log=on_log
-    client.on_connect = on_connect
-    client.on_disconnect = on_disconnect
-    logger.info("Connection to MQTT broker")
-    client.connect(mqtt_broker_address)
+    mqttc = mqtt.Client(mqtt_client_name, True, None, mqtt.MQTTv31)
+    mqttc.on_log=on_log
+    mqttc.on_connect = on_connect
+    mqttc.on_disconnect = on_disconnect
+    logger.info("Created new MQTT client: "+mqtt_client_name)
+
+    mqttc.connect(mqtt_broker_address)
+    logger.info("Connected to MQTT broker: "+mqtt_broker_address)
+
+    logger.debug("Starting MQTT loop")
+    mqttc.loop_start()
+    time.sleep(5)
+    mqttc.loop_stop()
+
+    mqttc.disconnect()
     logger.info("Closed connection to MQTT broker")
+
+    ##### Process Lock section
+    lock.close()
+    logger.info("Closed running processes")
 
 except Exception as e:
     logger.error(e)
