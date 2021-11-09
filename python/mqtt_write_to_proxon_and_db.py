@@ -130,43 +130,18 @@ def on_connect(client, userdata, flags, rc):
         points = []
 
         for i in range(len(reg)):
-            # subscribe to command topic
-            mqtt_command_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/command"
-            mqttc.subscribe(mqtt_command_topic)
+            if reg[i][2] != '':
+                # subscribe to command topic
+                mqtt_command_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/command"
+                mqttc.subscribe(mqtt_command_topic)
+                mqttc.publish(mqtt_topic_debug,"Subscribed to topic: "+str(mqtt_command_topic))
+                logger.info("Subscribed to command-topic: "+str(mqtt_command_topic))
 
-            # update state topic
-            mqtt_state_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/state"
-            logger.debug("state_topic - "+mqtt_state_topic)
-            logger.debug("Register Array - "+str(reg[i]))
-            value = instr.read_register(reg[i][0],reg[i][1],reg[i][3],True)
-            logger.debug("Value: "+str(value))
+                # update availability topic
+                mqtt_availability_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/availability"
+                mqttc.publish(mqtt_availability_topic,"online",qos=2,retain=True)
+                logger.info("Upated availability-topic: "+str(mqtt_availability_topic))
 
-            if reg[i][5] == 'wp_soll-temp_zone1':
-                value = value + 0.5
-                logger.debug("Value: "+str(value))
-
-            mqttc.publish(mqtt_state_topic,str(value),qos=2,retain=True)
-
-            logger.info(str(reg[i][7]).ljust(35)+": "+str(value)+" "+str(reg[i][6]))
-            point = {
-                "measurement": str(reg[i][5]),
-                "tags": {
-                    "instance": influxDB_tag_instance,
-                    "source": influxDB_tag_source
-                },
-                #   "time": timestamp,   # Wenn nicht genutzt, wird der aktuelle Timestamp aus influxDB genutzt
-                "fields": {
-                    str(reg[i][6]): value
-                    }
-                }
-            logger.debug(str(point))
-            points.append(point)
-
-            # update availability topic
-            mqtt_availability_topic = mqtt_topic_prefix+"/"+str(reg[i][6])+"/"+str(reg[i][5])+"/availability"
-            mqttc.publish(mqtt_availability_topic,"online",qos=2,retain=True)
-
-            mqttc.publish(mqtt_topic_debug,"Subscribed to topic: "+str(mqtt_availability_topic))
 
         clientInfluxDB.write_points(points)
 
@@ -212,7 +187,7 @@ def on_message(client, userdata, message):
         # Home Assistant  -> MQTT-Topic
         # MQTT Select     -> mode
         # MQTT Switch     -> switch
-        # MQTT Number     -> temp, time
+        # MQTT Number     -> temp, min
 
         for i in range(len(reg)):
             if device == reg[i][5]:
