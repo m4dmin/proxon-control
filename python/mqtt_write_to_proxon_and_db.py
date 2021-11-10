@@ -92,10 +92,6 @@ except Exception as e:
 
 ##### MQTT section ------------------------------------------------------------------------------------------------------------------------------------------
 
-# logging MQTT
-def on_log(client, userdata, level, buf):
-    logger.debug("MQTT on_log: ",str(buf))
-
 # handling disconnects
 def on_disconnect(client, userdata, rc):
     logging.debug("MQTT on_disconnect - DISCONNECT REASON: "+str(rc))
@@ -246,7 +242,7 @@ try:
 
     ##### MQTT section
     mqttc = mqtt.Client(mqtt_client_name, True, None, mqtt.MQTTv31)
-    mqttc.on_log=on_log
+    mqttc.enable_logger(logger)
     mqttc.on_connect = on_connect
     mqttc.on_disconnect = on_disconnect
     mqttc.on_message = on_message
